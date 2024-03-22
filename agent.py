@@ -9,8 +9,6 @@ import numpy as np
 from collections import deque
 from game import Conquete, Direction, Point
 
-from helper import plot
-
 from model import Linear_QNet,QTrainer
 
 MAX_MEMORY = 100_000
@@ -18,13 +16,13 @@ BATCH_SIZE = 1000
 LR = 0.001
 
 class Agent:
-	def __init__(self,epsilon_const = 80, gamma = 0.99, hidden_size = 512):
+	def __init__(self,epsilon_const = 80, gamma = 0.99, hidden_size = 2560):
 		self.n_games = 0
 		self.epsilon = 0  # Randomness
 		self.epsilon_const = epsilon_const
 		self.gamma = gamma  # discount rate
 		self.memory = deque(maxlen=MAX_MEMORY)
-		self.model = Linear_QNet(11, hidden_size, 3)
+		self.model = Linear_QNet(1409, hidden_size, 3)
 		self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 	def update_trainer(self):
@@ -54,27 +52,26 @@ class Agent:
 		dir_d = my_player.direction == Direction.DOWN
 		static = my_player.direction == Direction.STATIC
 
+		grid = []
+		grid_adv = []
+
+		#GRID FIELD PLAYER
+		for row in range(len(game.grid)):
+			for cell in range(len(game.grid[row])):
+				if game.grid[row][cell] == my_player.id:
+					grid.append(1)
+				else:
+					grid.append(0)
+
+		#GRID FIELD OTHER PLAYER
+		for row in range(len(game.grid)):
+			for cell in range(len(game.grid[row])):
+				if game.grid[row][cell] == other_player.id:
+					grid_adv.append(1)
+				else:
+					grid_adv.append(0)
+
 		state = [
-
-			# Limite Straight
-			(dir_r and game.check_limite(point_r)) or
-			(dir_l and game.check_limite(point_l)) or
-			(dir_u and game.check_limite(point_u)) or
-			(dir_d and game.check_limite(point_d)),
-
-			# Limite right
-			(dir_u and game.check_limite(point_r)) or
-			(dir_d and game.check_limite(point_l)) or
-			(dir_l and game.check_limite(point_u)) or
-			(dir_r and game.check_limite(point_d)),
-
-			# Limite left
-			(dir_u and game.check_limite(point_l)) or
-			(dir_d and game.check_limite(point_r)) or
-			(dir_l and game.check_limite(point_d)) or
-			(dir_r and game.check_limite(point_u)),
-
-
 			#Move direction
 			dir_l,
 			dir_r,
@@ -89,8 +86,9 @@ class Agent:
 			other_player.position_grid.x > my_player.position_grid.x,
 			other_player.position_grid.y < my_player.position_grid.y,
 			other_player.position_grid.y > my_player.position_grid.y,
-			]
+		]
 
+		state = state + grid + grid_adv
 		return np.array(state, dtype='int')
 
 	def remember(self, state, action, reward, next_state, done):
@@ -115,7 +113,9 @@ class Agent:
 			move = random.randint(0,2)
 			final_move[move] = 1
 		else:
-			state0 = torch.tensor(state, dtype=torch.float)
+
+			#state0 = torch.tensor(state, dtype=torch.float)
+			state0 = torch.from_numpy(state).float()
 			prediction = self.model(state0)
 			move = torch.argmax(prediction).item()
 			final_move[move] = 1
@@ -123,15 +123,10 @@ class Agent:
 		return final_move
 
 def train():
-
-	plot_scores = []
-	plot_mean_scores = []
-	total_score = 0
-	record = 0
-
 	agents = []
 	game = Conquete()
 	players = game.players
+
 	for player in players:
 		agents.append(Agent())
 
@@ -139,28 +134,32 @@ def train():
 		for player in players:
 			state_old = agents[player.id-1].get_state(game,player.id)
 			final_move = agents[player.id-1].get_action(state_old)
-			reward, done, score_player = game.play_step(player,final_move)
-			state_new = agents[player.id-1].get_state(game)
+			done = game.play_step(player,final_move)
+			state_new = agents[player.id-1].get_state(game,player.id)
 
-			agents[player.id-1].train_short_memory(state_old, final_move, reward, state_new, done)
+			agents[player.id-1].train_short_memory(state_old, final_move, player.reward, state_new, done)
 
-			agents[player.id-1].remember(state_old, final_move, reward, state_new, done)
+			agents[player.id-1].remember(state_old, final_move, player.reward, state_new, done)
 
 		if done:
 			game.reset()
+			player_win = 0
+			best_score = 0
+			for player in players:
+				if player.score > best_score:
+					player_win = player.id
+					best_score = player.score
+				elif player.score == best_score:
+					player_win = player.id
+
+			agent = agents[player_win-1]
 			agent.n_games += 1
 			agent.train_long_memory()
+			agent.model.save()
+			agents = []
+			for player in players:
+				agents.append(agent)
 
-			if score > record:
-				record = score
-				agent.model.save()
-			print("Game", agent.n_games, "Score", score, "Record", record)
-
-			plot_scores.append(score)
-			total_score += score
-			mean_score = total_score / agent.n_games
-			plot_mean_scores.append(mean_score)
-			plot(plot_scores, plot_mean_scores)
 
 
 

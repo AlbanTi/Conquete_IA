@@ -57,6 +57,7 @@ class Player:
 		self.color_center = (color[0]+28,color[1]+28,color[2]+28)
 		self.direction = Direction.STATIC
 		self.position_grid = Point(0,0)
+		self.reward = 0
 
 
 
@@ -66,13 +67,10 @@ class Conquete:
 		self.h = h
 		self.nbr_player = nbr_player
 
-		self.players = []
+
 
 		self.nbr_row = 20
 		self.nbr_column = 35
-
-		self.grid = [[0 for _ in range(self.nbr_column)] for _ in range(self.nbr_row)]
-		self.mask = self.grid.copy()
 
 		self.start_field = Point(260,156)
 
@@ -82,6 +80,9 @@ class Conquete:
 		self.reset()
 
 	def reset(self):
+		self.players = []
+		self.grid = [[0 for _ in range(self.nbr_column)] for _ in range(self.nbr_row)]
+		self.mask = self.grid.copy()
 		self.direction = Direction.STATIC
 		self._place_player()
 		self.frame_iteration = 0
@@ -138,6 +139,7 @@ class Conquete:
 				y += BLOCK_SIZE
 				player.position_grid = Point(player.position_grid.x, player.position_grid.y + 1)
 			case Direction.STATIC:
+				player.reward -= 30
 				pass
 
 		player.position = Point(x,y)
@@ -226,6 +228,8 @@ class Conquete:
 				return True
 
 	def play_step(self,player,action):
+
+
 		self.frame_iteration += 1
 
 		for event in pygame.event.get():
@@ -236,7 +240,6 @@ class Conquete:
 		self._move(player,action)
 		#Update Field
 		self.update_field()
-
 		voisins = self.check_voisin_color_player(player)
 		if voisins is not None:
 			for v in voisins:
@@ -246,14 +249,38 @@ class Conquete:
 						conquete = self.conquete_field(vn[0],vn[1],player)
 						if len(conquete) > 0:
 							player.score += len(conquete)
+							player.reward += len(conquete)
 							for c in conquete:
 								self.grid[c[1]][c[0]] = player.id
 
-		#REWARD
+		#check_game_over
+		game_over = False
+		check_neutral = False
+		for row in range(len(self.grid)):
+			for cell in range(len(self.grid[row])):
+				if self.grid[row][cell] == 0:
+					check_neutral = True
+
+		if check_neutral == False or self.frame_iteration > 300:
+			game_over = True
+			winner = 0
+			best_score = 0
+			for player in self.players:
+				if player.score >= best_score:
+					best_score = player.score
+					winner = player.id
+			for player in self.players:
+				if player.id == winner:
+					player.reward = 10
+				else:
+					player.reward = -10
+
+			return game_over
 
 		self._update_ui()
 		self.clock.tick(SPEED)
 		pygame.display.update()
+		return game_over
 
 	def return_voisin_neutre(self,x,y):
 		width = len(self.grid[0])
@@ -304,6 +331,7 @@ class Conquete:
 			if self.grid[cell_y][cell_x] == 0:
 				self.grid[cell_y][cell_x] = player.id
 				player.score += 1
+				player.reward = 10
 
 	def drawGrid(self):
 		for row in range(len(self.grid)):
