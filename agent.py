@@ -1,8 +1,6 @@
 from game import Conquete, Direction
 import pygame
 
-import os.path
-
 import torch
 import random
 import numpy as np
@@ -52,25 +50,8 @@ class Agent:
 		dir_d = my_player.direction == Direction.DOWN
 		static = my_player.direction == Direction.STATIC
 
-		grid = []
-		grid_adv = []
-
-		#GRID FIELD PLAYER
-		for row in range(len(game.grid)):
-			for cell in range(len(game.grid[row])):
-				if game.grid[row][cell] == my_player.id:
-					grid.append(1)
-				else:
-					grid.append(0)
-
-		#GRID FIELD OTHER PLAYER
-		for row in range(len(game.grid)):
-			for cell in range(len(game.grid[row])):
-				if game.grid[row][cell] == other_player.id:
-					grid_adv.append(1)
-				else:
-					grid_adv.append(0)
-
+		grid_adv = game.grid == other_player.id
+		grid_player = game.grid == player.id
 		state = [
 			#Move direction
 			dir_l,
@@ -88,8 +69,9 @@ class Agent:
 			other_player.position_grid.y > my_player.position_grid.y,
 		]
 
-		state = state + grid + grid_adv
-		return np.array(state, dtype='int')
+		state_np = np.array(state)
+		final_state = np.concatenate(state_np,grid_player,grid_adv)
+		return np.array(final_state, dtype='int')
 
 	def remember(self, state, action, reward, next_state, done):
 		self.memory.append((state, action, reward, next_state,done))
