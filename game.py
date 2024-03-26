@@ -58,6 +58,7 @@ class Player:
 		self.direction = Direction.STATIC
 		self.position_grid = Point(0,0)
 		self.reward = 0
+		self.check_too_static = 0
 
 
 
@@ -69,8 +70,8 @@ class Conquete:
 
 
 
-		self.nbr_row = 20
-		self.nbr_column = 35
+		self.height = 20
+		self.width = 35
 
 		self.start_field = Point(260,156)
 
@@ -81,8 +82,7 @@ class Conquete:
 
 	def reset(self):
 		self.players = []
-		self.grid = [[0 for _ in range(self.nbr_column)] for _ in range(self.nbr_row)]
-		self.mask = self.grid.copy()
+		self.grid  = np.zeros((self.height, self.width), dtype=np.int8)
 		self.direction = Direction.STATIC
 		self._place_player()
 		self.frame_iteration = 0
@@ -90,8 +90,8 @@ class Conquete:
 	def _place_player(self):
 		for i in range(0,self.nbr_player):
 
-			x = random.randint(0, self.nbr_column-1)
-			y = random.randint(0, self.nbr_row-1)
+			x = random.randint(0, self.width - 1)
+			y = random.randint(0, self.height - 1)
 
 
 			x_pos = (self.start_field.x + x * BLOCK_SIZE) + PLAYER_SIZE
@@ -105,6 +105,7 @@ class Conquete:
 				self.players.append(player)
 
 	def _move(self, player, action):
+
 		if np.array_equal(action, [0,0,0]):
 			new_dir = player.direction # STATIC
 		elif np.array_equal(action, [1,1,0]):
@@ -139,14 +140,12 @@ class Conquete:
 				y += BLOCK_SIZE
 				player.position_grid = Point(player.position_grid.x, player.position_grid.y + 1)
 			case Direction.STATIC:
-				player.reward -= 30
 				pass
 
 		player.position = Point(x,y)
+		return new_dir
 
 	def check_voisin_color_player(self,player):
-		width = len(self.grid[0])
-		height = len(self.grid)
 		pos_grid = player.position_grid
 		pos_color_same = []
 		pos_color_same_diago = []
@@ -161,13 +160,13 @@ class Conquete:
 		                   (pos_grid.x - 1 , pos_grid.y +1)]
 		for n in neighbors:
 			#In Grid
-			if 0 <= n[0] <= width-1 and 0 <= n[1] <= height-1:
-				if self.grid[n[1]][n[0]] == player.id:
+			if 0 <= n[0] <= self.width-1 and 0 <= n[1] <= self.height-1:
+				if self.grid[n[1],n[0]] == player.id:
 					pos_color_same.append(n)
 		for n in neighbors_diago:
 			#In Grid
-			if 0 <= n[0] <= width-1 and 0 <= n[1] <= height-1:
-				if self.grid[n[1]][n[0]] == player.id:
+			if 0 <= n[0] <= self.width-1 and 0 <= n[1] <= self.height-1:
+				if self.grid[n[1],n[0]] == player.id:
 					pos_color_same_diago.append(n)
 
 		if len(pos_color_same) > 1 and len(pos_color_same_diago) < 4:
@@ -176,9 +175,6 @@ class Conquete:
 
 	def conquete_field(self,x,y, player):
 		pull = []
-		width = len(self.grid[0])
-		height = len(self.grid)
-
 		queue = []
 		queue.append([x,y])
 		while queue:
@@ -191,10 +187,10 @@ class Conquete:
 			             (pos_x, pos_y + 1)]
 
 			for n in neighbors:
-				if 0 <= n[0] <= width - 1 and 0 <= n[1] <= height - 1:
-					if self.grid[n[1]][n[0]] != 0 and self.grid[n[1]][n[0]] != player.id:
+				if 0 <= n[0] <= self.width - 1 and 0 <= n[1] <= self.height - 1:
+					if self.grid[n[1],n[0]] != 0 and self.grid[n[1],n[0]] != player.id:
 						return []
-					if self.grid[n[1]][n[0]] == 0:
+					if self.grid[n[1],n[0]] == 0:
 						if n not in pull:
 							pull.append(n)
 							queue.append(n)
@@ -205,7 +201,7 @@ class Conquete:
 	def check_field(self,player,new_dir):
 		match new_dir:
 			case Direction.RIGHT:
-				if player.position.x ==  (self.start_field.x + (self.nbr_column-1) * BLOCK_SIZE) + PLAYER_SIZE:
+				if player.position.x ==  (self.start_field.x + (self.width - 1) * BLOCK_SIZE) + PLAYER_SIZE:
 					return False
 				else:
 					return True
@@ -220,7 +216,7 @@ class Conquete:
 				else:
 					return True
 			case Direction.DOWN:
-				if player.position.y == (self.start_field.y + (self.nbr_row-1) * BLOCK_SIZE) + PLAYER_SIZE:
+				if player.position.y == (self.start_field.y + (self.height - 1) * BLOCK_SIZE) + PLAYER_SIZE:
 					return False
 				else:
 					return True
@@ -228,8 +224,6 @@ class Conquete:
 				return True
 
 	def play_step(self,player,action):
-
-
 		self.frame_iteration += 1
 
 		for event in pygame.event.get():
@@ -237,10 +231,12 @@ class Conquete:
 				pygame.quit()
 				quit()
 
-		self._move(player,action)
+		new_dir = self._move(player,action)
 		#Update Field
 		self.update_field()
 		voisins = self.check_voisin_color_player(player)
+
+
 		if voisins is not None:
 			for v in voisins:
 				voisin_neutral = self.return_voisin_neutre(v[0], v[1])
@@ -251,17 +247,16 @@ class Conquete:
 							player.score += len(conquete)
 							player.reward += len(conquete)
 							for c in conquete:
-								self.grid[c[1]][c[0]] = player.id
+								self.grid[c[1],c[0]] = player.id
 
 		#check_game_over
 		game_over = False
 		check_neutral = False
-		for row in range(len(self.grid)):
-			for cell in range(len(self.grid[row])):
-				if self.grid[row][cell] == 0:
-					check_neutral = True
+		for y,x in np.ndindex(self.grid.shape):
+			if self.grid[y,x] == 0:
+				check_neutral = True
 
-		if check_neutral == False or self.frame_iteration > 300:
+		if check_neutral == False or self.frame_iteration > 100 * player.score:
 			game_over = True
 			winner = 0
 			best_score = 0
@@ -277,43 +272,36 @@ class Conquete:
 
 			return game_over
 
+		if new_dir == Direction.STATIC:
+			player.check_too_static += 1
+			if player.check_too_static == 6:
+				player.reward = -50
+		else:
+			player.check_too_static = 0
+
 		self._update_ui()
 		self.clock.tick(SPEED)
 		pygame.display.update()
 		return game_over
 
 	def return_voisin_neutre(self,x,y):
-		width = len(self.grid[0])
-		height = len(self.grid)
 		voisin_neutre = []
 		neighbors = [(x - 1, y),
 		             (x + 1, y),
 		             (x, y - 1),
 		             (x, y + 1)]
 		for n in neighbors:
-			if 0 <= n[0] <= width - 1 and 0 <= n[1] <= height - 1:
+			if 0 <= n[0] <= self.width - 1 and 0 <= n[1] <= self.height - 1:
 				if self.grid[n[1]][n[0]] == 0:
 					voisin_neutre.append(n)
 
 		return voisin_neutre
-
-	def check_limite(self,pos):
-		width = len(self.grid[0])
-		height = len(self.grid)
-
-		# hits boundary
-		if 0 <= pos.x <= width - 1 and 0 <= pos.y <= height - 1:
-			return False
-
-		return True
 
 	def _update_ui(self):
 		self.display.fill(BACKGROUND)
 
 		self.color_field()
 		self.drawGrid()
-
-
 
 		for player in self.players:
 			pygame.draw.circle(self.display,player.color,(player.position.x,player.position.y),PLAYER_SIZE)
@@ -324,35 +312,31 @@ class Conquete:
 
 	def update_field(self):
 		for player in self.players:
+			y = player.position_grid.y
+			x = player.position_grid.x
 
-			cell_x = (player.position.x - self.start_field.x)//BLOCK_SIZE
-			cell_y = (player.position.y - self.start_field.y)//BLOCK_SIZE
-
-			if self.grid[cell_y][cell_x] == 0:
-				self.grid[cell_y][cell_x] = player.id
+			if self.grid[y,x] == 0:
+				self.grid[y,x] = player.id
 				player.score += 1
 				player.reward = 10
 
 	def drawGrid(self):
-		for row in range(len(self.grid)):
-			for cell in range(len(self.grid[row])):
-				rect = pygame.Rect(self.start_field.x + cell * BLOCK_SIZE, self.start_field.y + row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
-				pygame.draw.rect(self.display,GRID,rect,1)
+		for y,x in np.ndindex(self.grid.shape):
+			rect = pygame.Rect(self.start_field.x + x * BLOCK_SIZE, self.start_field.y + y * BLOCK_SIZE,BLOCK_SIZE, BLOCK_SIZE)
+			pygame.draw.rect(self.display, GRID, rect, 1)
 
 	def color_field(self):
-		for row in range(len(self.grid)):
-			for cell in range(len(self.grid[row])):
-				rect = pygame.Rect(self.start_field.x + 1 + cell * BLOCK_SIZE,
-				                   self.start_field.y + 1 + row * BLOCK_SIZE,
-				                   BLOCK_SIZE - 2,
-				                   BLOCK_SIZE - 2)
-
-				rect_center = pygame.Rect((self.start_field.x + (cell * BLOCK_SIZE)) + 4,
-				                          (self.start_field.y + (row * BLOCK_SIZE)) + 4,
-				                          BLOCK_SIZE - 8, BLOCK_SIZE - 8)
-				if self.grid[row][cell] == 0:
-					pygame.draw.rect(self.display, NEUTRAL_COLOR, rect)
-					pygame.draw.rect(self.display, NEUTRAL_COLOR_CENTER, rect_center)
-				else :
-					pygame.draw.rect(self.display, self.players[self.grid[row][cell]-1].color, rect)
-					pygame.draw.rect(self.display, self.players[self.grid[row][cell]-1].color_center, rect_center)
+		for y, x in np.ndindex(self.grid.shape):
+			rect = pygame.Rect(self.start_field.x + 1 + x * BLOCK_SIZE,
+			                   self.start_field.y + 1 + y * BLOCK_SIZE,
+			                   BLOCK_SIZE - 2,
+			                   BLOCK_SIZE - 2)
+			rect_center = pygame.Rect((self.start_field.x + (x * BLOCK_SIZE)) + 4,
+			                          (self.start_field.y + (y * BLOCK_SIZE)) + 4,
+			                          BLOCK_SIZE - 8, BLOCK_SIZE - 8)
+			if self.grid[y,x] == 0:
+				pygame.draw.rect(self.display, NEUTRAL_COLOR, rect)
+				pygame.draw.rect(self.display, NEUTRAL_COLOR_CENTER, rect_center)
+			else:
+				pygame.draw.rect(self.display, self.players[self.grid[y,x] - 1].color, rect)
+				pygame.draw.rect(self.display, self.players[self.grid[y,x] - 1].color_center, rect_center)

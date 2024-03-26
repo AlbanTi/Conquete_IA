@@ -108,12 +108,11 @@ class Agent:
 
 	def get_action(self, state):
 		self.epsilon = self.epsilon_const - self.n_games
-		final_move = [0,0,0]
+		final_move = [1,0,0]
 		if random.randint(0,200) < self.epsilon:
 			move = random.randint(0,2)
 			final_move[move] = 1
 		else:
-
 			#state0 = torch.tensor(state, dtype=torch.float)
 			state0 = torch.from_numpy(state).float()
 			prediction = self.model(state0)
@@ -190,4 +189,5 @@ def control_debug():
 		game.play_step(player, action)
 
 if __name__ == '__main__':
-	train()
+	#train()
+	control_debug()
