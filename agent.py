@@ -38,12 +38,6 @@ class Agent:
 				other_player = player
 
 
-		#POSITION PLAYER
-		point_l = Point(my_player.position_grid.x, my_player.position_grid.y)
-		point_r = Point(my_player.position_grid.x + 1, my_player.position_grid.y)
-		point_u = Point(my_player.position_grid.x, my_player.position_grid.y - 1)
-		point_d = Point(my_player.position_grid.x, my_player.position_grid.y + 1)
-
 		dir_l = my_player.direction == Direction.LEFT
 		dir_r = my_player.direction == Direction.RIGHT
 		dir_u = my_player.direction == Direction.UP
@@ -52,26 +46,28 @@ class Agent:
 
 		grid_adv = game.grid == other_player.id
 		grid_player = game.grid == player.id
-		state = [
-			#Move direction
-			dir_l,
-			dir_r,
-			dir_u,
-			dir_d,
 
-			#STATIC
-			static,
+		position_player_x = np.zeros(game.width)
+		position_player_x[player.position_grid.x] = 1
+		position_player_y = np.zeros(game.height)
+		position_player_y[player.position_grid.y] = 1
 
-			#Other location
-			other_player.position_grid.x < my_player.position_grid.x,
-			other_player.position_grid.x > my_player.position_grid.x,
-			other_player.position_grid.y < my_player.position_grid.y,
-			other_player.position_grid.y > my_player.position_grid.y,
-		]
+		#PLAYER POSITION ONE HOT Encoding
+		player_position = np.zeros((game.height, game.width), dtype='int')
+		player_position[player.position_grid.y,player.position_grid.x] = 1
+		player_position = player_position.flatten()
 
-		state_np = np.array(state)
-		final_state = np.concatenate(state_np,grid_player,grid_adv)
-		return np.array(final_state, dtype='int')
+		#OTEHR PLAYER POSITION ONE HOT Encoding
+		for p in game.players:
+			other_player_position = np.zeros((game.height, game.width), dtype='int')
+			if p != player.id:
+				other_player_position[p.position_grid.y,p.position_grid.x] = 1
+
+		other_player_position = other_player_position.flatten()
+
+		player_direction = np.array([dir_l, dir_r, dir_u, dir_d,static], dtype='int')
+
+		return player_position, player_direction, other_player_position, grid_adv, grid_player
 
 	def remember(self, state, action, reward, next_state, done):
 		self.memory.append((state, action, reward, next_state,done))
@@ -171,5 +167,5 @@ def control_debug():
 		game.play_step(player, action)
 
 if __name__ == '__main__':
-	#train()
-	control_debug()
+	train()
+	#control_debug()

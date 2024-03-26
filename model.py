@@ -62,3 +62,21 @@ class QTrainer():
 		loss.backward()
 
 		self.optimizer.step()
+
+class MultiInputCNN(nn.Module):
+	def __init__(self, player_position, player_direction, other_player_position, grid):
+		super(MultiInputCNN, self).__init__()
+
+		#Couches de convolution pour joueur
+		self.conv_player = nn.Linear(player_position, 64)
+
+		#Couches de convolution pour la direction
+		self.conv_direction = nn.Linear(player_direction, 64)
+
+		#Couches de convolution pour la position des autres joueurs
+		self.conv_other_players = nn.Linear(other_player_position, 64)
+
+		#Couches de convolution pour la grid
+		self.conv_grid = nn.Conv2d(1, 32, kernel_size=(3, 3))
+
+		input_grid = torch.from_numpy(grid).unsqueeze(0).unsqueeze(0).float()
