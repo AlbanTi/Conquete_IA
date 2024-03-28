@@ -34,7 +34,7 @@ NEUTRAL_COLOR = (100,100,100)
 NEUTRAL_COLOR_CENTER = (128,128,128)
 
 BLOCK_SIZE = 26
-SPEED = 15
+SPEED = 250
 
 LIST_COLOR_PLAYER = [BLUE,RED]
 
@@ -256,7 +256,7 @@ class Conquete:
 			if self.grid[y,x] == 0:
 				check_neutral = True
 
-		if check_neutral == False or self.frame_iteration > 100 * player.score:
+		if check_neutral == False or self.frame_iteration > 30 * (player.score//2):
 			game_over = True
 			winner = 0
 			best_score = 0

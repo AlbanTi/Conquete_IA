@@ -7,7 +7,7 @@ import numpy as np
 from collections import deque
 from game import Conquete, Direction, Point
 
-from model import Linear_QNet,QTrainer
+from model import MonteCarloAgent,QTrainer
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
@@ -20,54 +20,50 @@ class Agent:
 		self.epsilon_const = epsilon_const
 		self.gamma = gamma  # discount rate
 		self.memory = deque(maxlen=MAX_MEMORY)
-		self.model = Linear_QNet(1409, hidden_size, 3)
+		self.model = MonteCarloAgent(2105, 5)
 		self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 	def update_trainer(self):
 		self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
 
 	def get_state(self,game,id):
-
 		my_player = None
-		other_player = None
 
 		for player in game.players:
 			if player.id == id:
 				my_player = player
-			else:
-				other_player = player
 
 
+		#DIRECTION
 		dir_l = my_player.direction == Direction.LEFT
 		dir_r = my_player.direction == Direction.RIGHT
 		dir_u = my_player.direction == Direction.UP
 		dir_d = my_player.direction == Direction.DOWN
 		static = my_player.direction == Direction.STATIC
+		player_direction = np.array([dir_l, dir_r, dir_u, dir_d, static], dtype='int')
+		#RESULTA == > [0,0,0,0,0]
 
-		grid_adv = game.grid == other_player.id
-		grid_player = game.grid == player.id
-
-		position_player_x = np.zeros(game.width)
-		position_player_x[player.position_grid.x] = 1
-		position_player_y = np.zeros(game.height)
-		position_player_y[player.position_grid.y] = 1
 
 		#PLAYER POSITION ONE HOT Encoding
 		player_position = np.zeros((game.height, game.width), dtype='int')
 		player_position[player.position_grid.y,player.position_grid.x] = 1
 		player_position = player_position.flatten()
+		#RESULTA ==> [0,0,0,0,0,...]
+		state = np.concatenate((player_direction,player_position))
 
 		#OTEHR PLAYER POSITION ONE HOT Encoding
+		other_player_position = np.zeros((game.height, game.width), dtype='int')
 		for p in game.players:
-			other_player_position = np.zeros((game.height, game.width), dtype='int')
 			if p != player.id:
 				other_player_position[p.position_grid.y,p.position_grid.x] = 1
-
 		other_player_position = other_player_position.flatten()
+		# RESULAT ==> [0,0,0,0,0,...]
+		state = np.concatenate((state, other_player_position))
 
-		player_direction = np.array([dir_l, dir_r, dir_u, dir_d,static], dtype='int')
 
-		return player_position, player_direction, other_player_position, grid_adv, grid_player
+		grid = game.grid.copy().flatten()
+		state = np.concatenate((state, grid))
+		return state
 
 	def remember(self, state, action, reward, next_state, done):
 		self.memory.append((state, action, reward, next_state,done))
@@ -78,6 +74,7 @@ class Agent:
 		else:
 			mini_sample = self.memory
 
+		print(mini_sample)
 		states,actions,rewards,next_states,dones = zip(*mini_sample)
 		self.trainer.train_step(states, actions, rewards, next_states, dones)
 
@@ -88,14 +85,27 @@ class Agent:
 		self.epsilon = self.epsilon_const - self.n_games
 		final_move = [1,0,0]
 		if random.randint(0,200) < self.epsilon:
-			move = random.randint(0,2)
-			final_move[move] = 1
+			move = random.randint(0,4)
+			#final_move[move] = 1
 		else:
 			#state0 = torch.tensor(state, dtype=torch.float)
 			state0 = torch.from_numpy(state).float()
 			prediction = self.model(state0)
 			move = torch.argmax(prediction).item()
-			final_move[move] = 1
+			#print(move)
+			#final_move[move] = 1
+
+		match move:
+			case 0:
+				final_move = [0,0,0]
+			case 1:
+				final_move = [1, 0, 0]
+			case 2:
+				final_move = [1,0,1]
+			case 3:
+				final_move = [1,1,0]
+			case 4:
+				final_move = [1,1,1]
 
 		return final_move
 
@@ -113,7 +123,6 @@ def train():
 			final_move = agents[player.id-1].get_action(state_old)
 			done = game.play_step(player,final_move)
 			state_new = agents[player.id-1].get_state(game,player.id)
-
 			agents[player.id-1].train_short_memory(state_old, final_move, player.reward, state_new, done)
 
 			agents[player.id-1].remember(state_old, final_move, player.reward, state_new, done)
