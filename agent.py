@@ -74,7 +74,6 @@ class Agent:
 		else:
 			mini_sample = self.memory
 
-		print(mini_sample)
 		states,actions,rewards,next_states,dones = zip(*mini_sample)
 		self.trainer.train_step(states, actions, rewards, next_states, dones)
 

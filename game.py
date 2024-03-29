@@ -256,7 +256,7 @@ class Conquete:
 			if self.grid[y,x] == 0:
 				check_neutral = True
 
-		if check_neutral == False or self.frame_iteration > 30 * (player.score//2):
+		if check_neutral == False or self.frame_iteration > 20 * (player.score//2):
 			game_over = True
 			winner = 0
 			best_score = 0
