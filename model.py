@@ -124,10 +124,10 @@ class MonteCarloAgent(nn.Module):
 		output = self.policy_network(x)
 		return output
 
-	def save(self, file_name='model.pth', model_folder_path = './model'):
+	def save(self, file_name='model', model_folder_path = './model'):
 		if not os.path.exists(model_folder_path):
 			os.makedirs(model_folder_path)
 
-		file_name = os.path.join(model_folder_path, file_name)
+		file_name = os.path.join(model_folder_path, file_name + ".pth")
 		torch.save(self.state_dict(),file_name)
 

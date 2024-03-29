@@ -106,16 +106,16 @@ class Conquete:
 
 	def _move(self, player, action):
 
-		if np.array_equal(action, [0,0,0]):
+		if np.array_equal(action, [0,0,0,0]):
 			new_dir = player.direction # STATIC
-		elif np.array_equal(action, [1,1,0]):
-			new_dir = Direction.RIGHT
-		elif np.array_equal(action,[1,0,0]): # [ 1,0,0 ] left trun
-			new_dir = Direction.LEFT
-		elif np.array_equal(action,[1,0,1]):
-			new_dir = Direction.DOWN
-		else:
+		elif np.array_equal(action, [1,0,0,0]):
 			new_dir = Direction.UP
+		elif np.array_equal(action,[0,1,0,0]): # [ 1,0,0 ] left trun
+			new_dir = Direction.DOWN
+		elif np.array_equal(action,[0,0,1,0]):
+			new_dir = Direction.RIGHT
+		else:
+			new_dir = Direction.LEFT
 
 		if self.check_field(player,new_dir) == False:
 			new_dir = Direction.STATIC
@@ -223,7 +223,9 @@ class Conquete:
 			case _:
 				return True
 
-	def play_step(self,player,action):
+	def play_step(self,player_id,action):
+
+		player = self.players[player_id]
 		self.frame_iteration += 1
 
 		for event in pygame.event.get():

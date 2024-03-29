@@ -155,7 +155,7 @@ def control_debug():
 
 	while True:
 
-		action = [0,0,0]
+		action = [0,0,0,0]
 
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
@@ -164,13 +164,13 @@ def control_debug():
 			if event.type == pygame.KEYDOWN:
 				# Move Event
 				if event.key == pygame.K_LEFT:
-					action = [1,0,0]
+					action = [0,0,0,1]
 				if event.key == pygame.K_RIGHT:
-					action = [1,1,0]
+					action = [0,0,1,0]
 				if event.key == pygame.K_UP:
-					action = [1,1,1]
+					action = [1,0,0,0]
 				if event.key == pygame.K_DOWN:
-					action = [1,0,1]
+					action = [0,1,0,0]
 
 		game.play_step(player, action)
 
