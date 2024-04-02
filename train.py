@@ -1,18 +1,18 @@
 import pygame
-
+import copy
 import torch
 import random
 import numpy as np
 from collections import deque
 from game import Conquete, Direction
 from robot import Robot
-
-
+from data_robot import Data_robot, show_data
 
 Fred = Robot('Fred', 1)
 Lucie = Robot('Lucie', 2)
 
 robots = [Fred,Lucie]
+nb_game = 2
 
 game = Conquete()
 
@@ -52,23 +52,63 @@ def get_state(id):
 	state = np.concatenate((state, grid))
 	return state
 
+def new_round():
+	best_robot = None
+	best_nb_win = 0
+	for robot in robots:
+		if robot.n_win > best_nb_win:
+			best_nb_win = robot.n_win
+			best_robot = robot
 
-def train():
+	print(f"Winner is : {best_robot.name}")
+	for robot in robots:
+		robot.model = copy.deepcopy(best_robot.model)
+		robot.memory = copy.deepcopy(best_robot.memory)
+		if robot.id_game != best_robot.id_game:
+			robot.change_type("challenger")
+		else:
+			robot.change_type("master")
+	best_robot.model.save()
+
+datas = []
+
+def init_robot_in_game():
+	for robot in robots:
+		game.players[robot.id_game - 1].name = robot.name
+		data = Data_robot(robot,game.players[robot.id_game - 1])
+		datas.append(data)
+
+
+def train(number_round = 10):
+	current_round = 0
+	init_robot_in_game()
 	while True:
 		for robot in robots:
 			robot.state = get_state(robot.id_game)
 			robot.get_action()
 		for robot in robots:
+			player = [player for player in game.players if player.id == robot.id_game]
 			final_move = robot.final_move
 			state_old = robot.state
 			#Revoir la gestion des rewards car normalement c'est ici que je dois les récupérers
-			reward , done = game.play_step(robot.id_game, final_move)
+			done = game.play_step(robot.id_game, final_move)
 			state_new = get_state(robot.id_game)
-			robot.train_short_memory(state_old,final_move, reward, state_new,done)
+			robot.train_short_memory(state_old,final_move, player[0].reward, state_new,done)
+			robot.remember(state_old, final_move, player[0].reward, state_new, done)
 
 		if done:
+			for robot in robots:
+				if robot.id_game == game.player_winner.id:
+					robot.n_win += 1
+				else:
+					robot.n_lose += 1
+			current_round += 1
 			game.reset()
-			#Check les scores
+			init_robot_in_game()
+			if current_round >= number_round:
+				current_round = 0
+				new_round()
+
 
 if __name__ == '__main__':
 	train()

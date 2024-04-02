@@ -22,6 +22,7 @@ Field = namedtuple('Field', 'w,h')
 WHITE = (255, 255, 255)
 GRID = (200, 200, 200)
 RED = (200,0,0)
+GREEN = (0,200,100)
 BLUE = (0,100,200)
 BACKGROUND = (40, 40, 40)
 
@@ -36,10 +37,10 @@ NEUTRAL_COLOR_CENTER = (128,128,128)
 BLOCK_SIZE = 26
 SPEED = 250
 
-LIST_COLOR_PLAYER = [BLUE,RED]
+LIST_COLOR_PLAYER = [BLUE,RED,GREEN]
 
-SPACE_SCORE = 110
-SIZE_SCORE_TXT = 250
+SPACE_SCORE = -200
+SIZE_SCORE_TXT = 350
 
 MOVE_REMPLISSAGE = [
 	(-1,0),
@@ -49,7 +50,7 @@ MOVE_REMPLISSAGE = [
 ]
 
 class Player:
-	def __init__(self, id,position, color = BLUE):
+	def __init__(self, id,position, name = "NoName",color = BLUE):
 		self.position = position
 		self.score = 0
 		self.id = id
@@ -59,6 +60,8 @@ class Player:
 		self.position_grid = Point(0,0)
 		self.reward = 0
 		self.check_too_static = 0
+		self.name = name
+
 
 
 
@@ -67,8 +70,6 @@ class Conquete:
 		self.w = w
 		self.h = h
 		self.nbr_player = nbr_player
-
-
 
 		self.height = 20
 		self.width = 35
@@ -79,6 +80,7 @@ class Conquete:
 		pygame.display.set_caption('Conquete Game')
 		self.clock = pygame.time.Clock()
 		self.reset()
+		self.player_winner = None
 
 	def reset(self):
 		self.players = []
@@ -86,6 +88,7 @@ class Conquete:
 		self.direction = Direction.STATIC
 		self._place_player()
 		self.frame_iteration = 0
+		self.player_winner = None
 
 	def _place_player(self):
 		for i in range(0,self.nbr_player):
@@ -97,7 +100,7 @@ class Conquete:
 			x_pos = (self.start_field.x + x * BLOCK_SIZE) + PLAYER_SIZE
 			y_pos = (self.start_field.y + y * BLOCK_SIZE) + PLAYER_SIZE
 
-			player = Player(i+1,Point(x_pos,y_pos),LIST_COLOR_PLAYER[i])
+			player = Player(i+1,Point(x_pos,y_pos),color = LIST_COLOR_PLAYER[i])
 			player.position_grid = Point(x,y)
 			if player in self.players:
 				self._place_player()
@@ -121,7 +124,6 @@ class Conquete:
 			new_dir = Direction.STATIC
 
 		player.direction = new_dir
-
 
 		x = player.position.x
 		y = player.position.y
@@ -225,7 +227,8 @@ class Conquete:
 
 	def play_step(self,player_id,action):
 
-		player = self.players[player_id]
+		player = self.players[player_id-1]
+
 		self.frame_iteration += 1
 
 		for event in pygame.event.get():
@@ -236,6 +239,7 @@ class Conquete:
 		new_dir = self._move(player,action)
 		#Update Field
 		self.update_field()
+
 		voisins = self.check_voisin_color_player(player)
 
 
@@ -266,6 +270,7 @@ class Conquete:
 				if player.score >= best_score:
 					best_score = player.score
 					winner = player.id
+					self.player_winner = player
 			for player in self.players:
 				if player.id == winner:
 					player.reward = 10
@@ -307,7 +312,7 @@ class Conquete:
 
 		for player in self.players:
 			pygame.draw.circle(self.display,player.color,(player.position.x,player.position.y),PLAYER_SIZE)
-			score_txt = font.render(f"Score player {player.id} : {player.score} ",True, player.color,WHITE)
+			score_txt = font.render(f"Score {player.name} : {player.score} ",True, player.color,WHITE)
 			self.display.blit(score_txt, [SPACE_SCORE + (player.id * SIZE_SCORE_TXT), 0])
 
 		pygame.display.flip()
@@ -320,7 +325,9 @@ class Conquete:
 			if self.grid[y,x] == 0:
 				self.grid[y,x] = player.id
 				player.score += 1
-				player.reward = 10
+				player.reward = 0
+			else:
+				player.reward = - 10
 
 	def drawGrid(self):
 		for y,x in np.ndindex(self.grid.shape):

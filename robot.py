@@ -10,8 +10,9 @@ LR = 0.01
 BATCH_SIZE = 1000
 
 class Robot:
-	def __init__(self,name,id_game, epsilon_const = 80, gamma = 0.99,type = "master"):
-		self.name = name + "_" + type
+	def __init__(self,default_name,id_game, epsilon_const = 80, gamma = 0.99,type = "master"):
+		self.name = default_name + "_" + type
+		self.default_name = default_name
 		self.n_games = 0
 		self.n_lose = 0
 		self.n_win = 0
@@ -58,4 +59,4 @@ class Robot:
 		self.model.save(self.name)
 
 	def change_type(self,type):
-		self.name = self.name + "_" + type
+		self.name = self.default_name + "_" + type
