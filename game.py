@@ -4,20 +4,13 @@ import numpy as np
 import pygame
 import random
 
+from player import Player, Direction
+
 pygame.init()
 font = pygame.font.Font('arial.ttf', 25)
 
 
-class Direction(Enum):
-	RIGHT = 1
-	LEFT = 2
-	UP = 3
-	DOWN = 4
-	STATIC = 5
-
 Point = namedtuple('Point', 'x, y')
-
-Field = namedtuple('Field', 'w,h')
 
 WHITE = (255, 255, 255)
 GRID = (200, 200, 200)
@@ -35,7 +28,7 @@ NEUTRAL_COLOR = (100,100,100)
 NEUTRAL_COLOR_CENTER = (128,128,128)
 
 BLOCK_SIZE = 26
-SPEED = 250
+SPEED = 1550
 
 LIST_COLOR_PLAYER = [BLUE,RED,GREEN]
 
@@ -49,21 +42,11 @@ MOVE_REMPLISSAGE = [
 	(0,1)
 ]
 
-class Player:
-	def __init__(self, id,position, name = "NoName",color = BLUE):
-		self.position = position
-		self.score = 0
-		self.id = id
+class Player_UI:
+	def __init__(self,color,position):
 		self.color = color
-		self.color_center = (color[0]+28,color[1]+28,color[2]+28)
-		self.direction = Direction.STATIC
-		self.position_grid = Point(0,0)
-		self.reward = 0
-		self.check_too_static = 0
-		self.name = name
-
-
-
+		self.color_center = (color[0] + 28, color[1] + 28, color[2] + 28)
+		self.position  = position
 
 class Conquete:
 	def __init__(self, w=1274,h=754, nbr_player = 2):
@@ -73,17 +56,22 @@ class Conquete:
 
 		self.height = 20
 		self.width = 35
-
+		self.recor = 0
+		self.last_score = 0
 		self.start_field = Point(260,156)
 
 		self.display = pygame.display.set_mode((self.w, self.h))
+
 		pygame.display.set_caption('Conquete Game')
+
 		self.clock = pygame.time.Clock()
+
 		self.reset()
-		self.player_winner = None
+
 
 	def reset(self):
 		self.players = []
+		self.players_UI = []
 		self.grid  = np.zeros((self.height, self.width), dtype=np.int8)
 		self.direction = Direction.STATIC
 		self._place_player()
@@ -92,74 +80,52 @@ class Conquete:
 
 	def _place_player(self):
 		for i in range(0,self.nbr_player):
-
 			x = random.randint(0, self.width - 1)
 			y = random.randint(0, self.height - 1)
 
+			position = Point(x,y)
 
-			x_pos = (self.start_field.x + x * BLOCK_SIZE) + PLAYER_SIZE
-			y_pos = (self.start_field.y + y * BLOCK_SIZE) + PLAYER_SIZE
+			x_ui = (self.start_field.x + x * BLOCK_SIZE) + PLAYER_SIZE
+			y_ui = (self.start_field.y + y * BLOCK_SIZE) + PLAYER_SIZE
 
-			player = Player(i+1,Point(x_pos,y_pos),color = LIST_COLOR_PLAYER[i])
-			player.position_grid = Point(x,y)
-			if player in self.players:
-				self._place_player()
-			else:
-				self.players.append(player)
+			pos_ui = Point(x_ui,y_ui)
 
-	def _move(self, player, action):
+			player_ui = Player_UI(LIST_COLOR_PLAYER[i],pos_ui)
+			player = Player(i+1,position)
+			self.players.append(player)
+			self.players_UI.append(player_ui)
 
-		if np.array_equal(action, [0,0,0,0]):
-			new_dir = player.direction # STATIC
-		elif np.array_equal(action, [1,0,0,0]):
-			new_dir = Direction.UP
-		elif np.array_equal(action,[0,1,0,0]): # [ 1,0,0 ] left trun
-			new_dir = Direction.DOWN
-		elif np.array_equal(action,[0,0,1,0]):
-			new_dir = Direction.RIGHT
-		else:
-			new_dir = Direction.LEFT
-
-		if self.check_field(player,new_dir) == False:
-			new_dir = Direction.STATIC
-
-		player.direction = new_dir
-
-		x = player.position.x
-		y = player.position.y
+	def _move_ui(self, player):
+		x_ui = self.players_UI[player.id -1].position.x
+		y_ui = self.players_UI[player.id -1].position.y
 
 		match player.direction:
 			case Direction.RIGHT:
-				x += BLOCK_SIZE
-				player.position_grid = Point(player.position_grid.x + 1, player.position_grid.y)
+				x_ui += BLOCK_SIZE
 			case Direction.LEFT:
-				x -= BLOCK_SIZE
-				player.position_grid = Point(player.position_grid.x - 1, player.position_grid.y)
+				x_ui -= BLOCK_SIZE
 			case Direction.UP:
-				y -= BLOCK_SIZE
-				player.position_grid = Point(player.position_grid.x, player.position_grid.y - 1)
+				y_ui -= BLOCK_SIZE
 			case Direction.DOWN:
-				y += BLOCK_SIZE
-				player.position_grid = Point(player.position_grid.x, player.position_grid.y + 1)
+				y_ui += BLOCK_SIZE
 			case Direction.STATIC:
 				pass
 
-		player.position = Point(x,y)
-		return new_dir
+		self.players_UI[player.id - 1].position = Point(x_ui,y_ui)
 
 	def check_voisin_color_player(self,player):
-		pos_grid = player.position_grid
+		pos = player.position
 		pos_color_same = []
 		pos_color_same_diago = []
-		neighbors = [(pos_grid.x - 1, pos_grid.y),
-		             (pos_grid.x + 1, pos_grid.y),
-		             (pos_grid.x, pos_grid.y - 1),
-		             (pos_grid.x, pos_grid.y + 1)]
+		neighbors = [(pos.x - 1, pos.y),
+		             (pos.x + 1, pos.y),
+		             (pos.x, pos.y - 1),
+		             (pos.x, pos.y + 1)]
 
-		neighbors_diago = [(pos_grid.x - 1, pos_grid.y - 1),
-		                   (pos_grid.x + 1, pos_grid.y + 1),
-		                   (pos_grid.x + 1, pos_grid.y - 1),
-		                   (pos_grid.x - 1 , pos_grid.y +1)]
+		neighbors_diago = [(pos.x - 1, pos.y - 1),
+		                   (pos.x + 1, pos.y + 1),
+		                   (pos.x + 1, pos.y - 1),
+		                   (pos.x - 1 , pos.y +1)]
 		for n in neighbors:
 			#In Grid
 			if 0 <= n[0] <= self.width-1 and 0 <= n[1] <= self.height-1:
@@ -200,25 +166,25 @@ class Conquete:
 					return []
 		return pull
 	#CHECK LES BORDURES
-	def check_field(self,player,new_dir):
-		match new_dir:
+	def check_field(self,player):
+		match player.direction:
 			case Direction.RIGHT:
-				if player.position.x ==  (self.start_field.x + (self.width - 1) * BLOCK_SIZE) + PLAYER_SIZE:
+				if player.position.x == self.width - 1:
 					return False
 				else:
 					return True
 			case Direction.LEFT:
-				if player.position.x == (self.start_field.x + 0 * BLOCK_SIZE) + PLAYER_SIZE:
+				if player.position.x == 0:
 					return False
 				else:
 					return True
 			case Direction.UP:
-				if player.position.y == (self.start_field.y + 0 * BLOCK_SIZE) + PLAYER_SIZE:
+				if player.position.y == 0:
 					return False
 				else:
 					return True
 			case Direction.DOWN:
-				if player.position.y == (self.start_field.y + (self.height - 1) * BLOCK_SIZE) + PLAYER_SIZE:
+				if player.position.y == self.height-1:
 					return False
 				else:
 					return True
@@ -236,7 +202,12 @@ class Conquete:
 				pygame.quit()
 				quit()
 
-		new_dir = self._move(player,action)
+		player.new_dir(action)
+
+		if self.check_field(player) != False:
+			player.move()
+			self._move_ui(player)
+
 		#Update Field
 		self.update_field()
 
@@ -251,7 +222,14 @@ class Conquete:
 						conquete = self.conquete_field(vn[0],vn[1],player)
 						if len(conquete) > 0:
 							player.score += len(conquete)
-							player.reward += len(conquete)
+							value = len(conquete)
+							match value:
+								case t if value in range(10,20):
+									player.reward = 20
+								case t if value in range(20,40):
+									player.reward = 25
+								case t if value > 40:
+									player.reward = 30
 							for c in conquete:
 								self.grid[c[1],c[0]] = player.id
 
@@ -262,7 +240,7 @@ class Conquete:
 			if self.grid[y,x] == 0:
 				check_neutral = True
 
-		if check_neutral == False or self.frame_iteration > 20 * (player.score//2):
+		if check_neutral == False or self.frame_iteration > 1000:
 			game_over = True
 			winner = 0
 			best_score = 0
@@ -273,22 +251,22 @@ class Conquete:
 					self.player_winner = player
 			for player in self.players:
 				if player.id == winner:
-					player.reward = 10
+					if player.score > self.recor:
+						self.recor = player.score
+						player.reward = 20
+					elif player.score < self.last_score:
+						player.reward = -20
 				else:
-					player.reward = -10
+					if player.score > self.last_score:
+						player.reward = 10
+					else:
+						player.reward = -20
 
 			return game_over
 
-		if new_dir == Direction.STATIC:
-			player.check_too_static += 1
-			if player.check_too_static == 6:
-				player.reward = -50
-		else:
-			player.check_too_static = 0
-
 		self._update_ui()
-		self.clock.tick(SPEED)
-		pygame.display.update()
+		#self.clock.tick(SPEED)
+		pygame.display.flip()
 		return game_over
 
 	def return_voisin_neutre(self,x,y):
@@ -301,33 +279,35 @@ class Conquete:
 			if 0 <= n[0] <= self.width - 1 and 0 <= n[1] <= self.height - 1:
 				if self.grid[n[1]][n[0]] == 0:
 					voisin_neutre.append(n)
-
 		return voisin_neutre
 
 	def _update_ui(self):
 		self.display.fill(BACKGROUND)
-
 		self.color_field()
 		self.drawGrid()
+		frame_ite = font.render(f"Frame iteration : {self.frame_iteration}",True, RED,WHITE)
+		self.display.blit(frame_ite, [0, 50])
 
 		for player in self.players:
-			pygame.draw.circle(self.display,player.color,(player.position.x,player.position.y),PLAYER_SIZE)
-			score_txt = font.render(f"Score {player.name} : {player.score} ",True, player.color,WHITE)
+			score_txt = font.render(f"Score {player.name} : {player.score} ",True, self.players_UI[player.id -1].color,WHITE)
 			self.display.blit(score_txt, [SPACE_SCORE + (player.id * SIZE_SCORE_TXT), 0])
 
+		for player_ui in self.players_UI:
+			pygame.draw.circle(self.display, player_ui.color,(player_ui.position.x, player_ui.position.y), PLAYER_SIZE)
 		pygame.display.flip()
 
 	def update_field(self):
 		for player in self.players:
-			y = player.position_grid.y
-			x = player.position_grid.x
+
+			y = player.position.y
+			x = player.position.x
 
 			if self.grid[y,x] == 0:
 				self.grid[y,x] = player.id
 				player.score += 1
-				player.reward = 0
+				player.reward = 1
 			else:
-				player.reward = - 10
+				player.reward = - 1
 
 	def drawGrid(self):
 		for y,x in np.ndindex(self.grid.shape):
@@ -347,5 +327,5 @@ class Conquete:
 				pygame.draw.rect(self.display, NEUTRAL_COLOR, rect)
 				pygame.draw.rect(self.display, NEUTRAL_COLOR_CENTER, rect_center)
 			else:
-				pygame.draw.rect(self.display, self.players[self.grid[y,x] - 1].color, rect)
-				pygame.draw.rect(self.display, self.players[self.grid[y,x] - 1].color_center, rect_center)
+				pygame.draw.rect(self.display, self.players_UI[self.grid[y,x] - 1].color, rect)
+				pygame.draw.rect(self.display, self.players_UI[self.grid[y,x] - 1].color_center, rect_center)

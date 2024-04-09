@@ -4,9 +4,12 @@ import torch
 import random
 import numpy as np
 from collections import deque
+
+import save
 from game import Conquete, Direction
 from robot import Robot
 from data_robot import Data_robot, show_data
+from save import Save
 
 Fred = Robot('Fred', 1)
 Lucie = Robot('Lucie', 2)
@@ -34,7 +37,7 @@ def get_state(id):
 
 	# PLAYER POSITION ONE HOT Encoding
 	player_position = np.zeros((game.height, game.width), dtype='int')
-	player_position[player.position_grid.y, player.position_grid.x] = 1
+	player_position[player.position.y, player.position.x] = 1
 	player_position = player_position.flatten()
 	# RESULTA ==> [0,0,0,0,0,...]
 	state = np.concatenate((player_direction, player_position))
@@ -43,7 +46,7 @@ def get_state(id):
 	other_player_position = np.zeros((game.height, game.width), dtype='int')
 	for p in game.players:
 		if p != player.id:
-			other_player_position[p.position_grid.y, p.position_grid.x] = 1
+			other_player_position[p.position.y, p.position.x] = 1
 	other_player_position = other_player_position.flatten()
 	# RESULAT ==> [0,0,0,0,0,...]
 	state = np.concatenate((state, other_player_position))
@@ -64,24 +67,29 @@ def new_round():
 	for robot in robots:
 		robot.model = copy.deepcopy(best_robot.model)
 		robot.memory = copy.deepcopy(best_robot.memory)
-		if robot.id_game != best_robot.id_game:
-			robot.change_type("challenger")
-		else:
-			robot.change_type("master")
+		# if robot.id_game != best_robot.id_game:
+		# 	robot.change_type("challenger")
+		# else:
+		# 	robot.change_type("master")
 	best_robot.model.save()
 
 datas = []
 
 def init_robot_in_game():
 	for robot in robots:
-		game.players[robot.id_game - 1].name = robot.name
-		data = Data_robot(robot,game.players[robot.id_game - 1])
+		data = Data_robot(robot.default_name)
 		datas.append(data)
 
+
+def init_player_robot():
+	for i, player in enumerate(game.players):
+		player.name = robots[i].name
 
 def train(number_round = 10):
 	current_round = 0
 	init_robot_in_game()
+	init_player_robot()
+	save = Save(game.players)
 	while True:
 		for robot in robots:
 			robot.state = get_state(robot.id_game)
@@ -93,22 +101,37 @@ def train(number_round = 10):
 			#Revoir la gestion des rewards car normalement c'est ici que je dois les récupérers
 			done = game.play_step(robot.id_game, final_move)
 			state_new = get_state(robot.id_game)
+			save.add_line_round([current_round,robot.id_game,player[0].position,player[0].score,player[0].reward])
 			robot.train_short_memory(state_old,final_move, player[0].reward, state_new,done)
 			robot.remember(state_old, final_move, player[0].reward, state_new, done)
 
 		if done:
 			for robot in robots:
+				robot.n_games += 1
 				if robot.id_game == game.player_winner.id:
+					save.new_won_resume(robot.id_game)
 					robot.n_win += 1
 				else:
+					save.new_lose_resume(robot.id_game)
 					robot.n_lose += 1
 			current_round += 1
-			game.reset()
-			init_robot_in_game()
+			for x, data in enumerate(datas):
+				print(game.players[x].score)
+				data.scores.append(game.players[x].score)
+				data.total_score += game.players[x].score
+				mean_score = data.total_score/robots[x].n_games
+				data.mean_scores.append(mean_score)
 			if current_round >= number_round:
+				save.next_round()
 				current_round = 0
 				new_round()
 
+			show_data(datas)
+			game.reset()
+			init_player_robot()
+		save.save_to_csv()
+
 
 if __name__ == '__main__':
+
 	train()

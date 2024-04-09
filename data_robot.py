@@ -1,27 +1,31 @@
 import matplotlib.pyplot as plt
 from IPython import display
-
-
-
-import numpy as np
-
-plt.ion()
-
+#plt.ion()
 class Data_robot:
-	def __init__(self,robot,player):
-		self.robot = robot
-		self.player = player
-		self.scores = 0
-		self.mean_scores = 0
+	def __init__(self,name):
+		self.name = name
+		self.scores = []
+		self.mean_scores = []
 		self.total_score = 0
 
 
 def show_data(datas):
-	fig, axs = plt.subplots(len(datas))
-	fig.suptitle('Training...',fontsize=18, y=0.95)
-	for data, ax in zip(datas, axs.ravel()):
-		ax.set_title(data.robot.default_name)
-		ax.xlabel('Number of Games')
-		ax.ylabel('Score')
+	display.clear_output(wait=True)
+	display.display(plt.gcf())
+	fig, axs = plt.subplots(len(datas), 1, layout='constrained', sharey=True)
+	for ax, data in zip(axs.flat, datas):
+		ax.set_title(data.name)
+		ax.plot(data.scores)
+		ax.plot(data.mean_scores)
+		ax.text(len(data.scores) - 1, data.scores[-1], str(data.scores[-1]))
+		ax.text(len(data.mean_scores) - 1, data.mean_scores[-1], str(data.mean_scores[-1]))
 
-	plt.show()
+	fig.text(0.5, 0.01, 'Number of Games', ha='center', va='center', fontsize=12)
+	fig.text(0.01, 0.5, 'Score', ha='center', va='center', fontsize=12, rotation='vertical')
+
+	plt.suptitle('Training...')
+
+	#plt.tight_layout()
+
+	plt.show(block=False)
+	plt.pause(.1)
