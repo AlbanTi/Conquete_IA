@@ -1,14 +1,10 @@
-import pygame
-import copy
-import torch
-import random
-import numpy as np
-from collections import deque
 
-import save
-from game import Conquete, Direction
-from robot import Robot
-from data_robot import Data_robot, show_data
+import copy
+import numpy as np
+
+from game.game import Conquete, Direction
+from IA.robot import Robot
+from IA.data_robot import Data_robot, show_data
 from save import Save
 
 Fred = Robot('Fred', 1)
